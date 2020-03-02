@@ -1,0 +1,12 @@
+**/__pycache__
+*.pyc
+*.pkl
+*.mrg*
+
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.run.xml
+*.log
+*.gz
