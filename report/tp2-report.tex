@@ -5,6 +5,8 @@
 \usepackage{mathtools}
 \usepackage{listings}
 
+\usepackage{graphicx}
+
 \usepackage{biblatex}
 
 \bibliography{tp2refs}
@@ -36,9 +38,19 @@
 
 \section{Implementation}
 
-\paragraph{Building the PCFG}
+\paragraph{Building the PCFG and lexicon}
 
-We use the Python Natural Language ToolKit (NLTK) \cite{nltkCitation} package to parse the parts-of-speech (PoS) annotated sentences in the treebank. We then build the PCFG.
+We use the Python Natural Language ToolKit (NLTK) \cite{nltkCitation} package to parse the annotated sentences in the treebank as productions. We then strip the lexical rules, leaving the part-of-speech (PoS) as terminals, and build the PCFG from these productions using NLTK's PCFG data structure and a helper which computes the empirical probabilities of individual productions.
+\begin{figure}
+	\centering
+	\includegraphics[width=0.7\linewidth]{didiersoulage_screenshot}
+	\caption{Failure of parsing a proper noun which is out-of-vocabulary.}
+	\label{fig:npParseFailure_didiersoulage}
+\end{figure}
+
+
+The lexical rules are transformed into a lexicon using our own \lstinline|ProbabilisticLexicon| Python class, which uses the NLTK probabilistic production data structure to represent the $(\mathrm{token}, \mathrm{PoS}, \mathrm{probability})$ triple.
+
 
 
 \paragraph{Out-of-Vocabulary module}

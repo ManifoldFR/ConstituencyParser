@@ -19,7 +19,6 @@ DIGITS = re.compile("[0-9]", re.UNICODE)
 def load_embeddings():
     with open('polyglot-fr.pkl', 'rb') as f:
         words, embeddings = pickle.load(f, encoding='latin1')
-    print("Embeddings shape is {}".format(embeddings.shape))
     return words, embeddings
 
 

@@ -14,6 +14,9 @@ random.seed(42)
 
 # Python argument parser
 parser = argparse.ArgumentParser()
+parser.add_argument("--input-sent", "-is")
+
+args = parser.parse_args()
 
 data = load_corpus()
 data.pop()  # remove the last line
@@ -22,9 +25,9 @@ data.pop()  # remove the last line
 data_train, data_dev, data_test = np.split(
     data, [int(.8*len(data)), int(.9*len(data))])
 
-print("Data train {:d}".format(len(data_train)))
-print("Data dev {:d}".format(len(data_dev)))
-print("Data test {:d}".format(len(data_test)))
+print("Train data: {:d}".format(len(data_train)))
+print("Dev data: {:d}".format(len(data_dev)))
+print("Test data: {:d}".format(len(data_test)))
 
 
 # STEP 3: BUILD LANGUAGE MODEL AND CFG
@@ -53,10 +56,13 @@ oov_module = oov.OOVModule(terminal_symb, language_model, vocab)
 cyk_module = cyk.CYKParser(grammar, oov_module, lexicon, unary_idx, binary_idx,
                            nonterminal_symb, terminal_symb)
 
-# cyk_module.cyk_parse("Gutenberg est mort ?".split())
-cyk_module.cyk_parse("Pourquoi ce thème ?".split())
+
 
 _, sentence_dev = process_corpus(data_dev)
 _, sentence_test = process_corpus(data_test)
 
+if __name__ == "__main__":
+    input_sentence = args.input_sent.split()
+    
+    cyk_module.cyk_parse(input_sentence)
 
