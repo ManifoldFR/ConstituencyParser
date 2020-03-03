@@ -53,5 +53,5 @@ nonterminal_symb, terminal_symb = get_symbols(grammar.productions())
 oov_module = OOVModule(terminal_symb, language_model)
 cyk_module = cyk.CYKParser(grammar, oov_module, unary_idx, binary_idx, nonterminal_symb)
 
-# cyk_module.cyk_parse("Pourquoi ce thème ?".split())
-cyk_module.cyk_parse("Gutenberg est mort .".split())
+# cyk_module.cyk_parse("Gutenberg est mort ?".split())
+cyk_module.cyk_parse("Pourquoi .".split())

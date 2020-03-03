@@ -75,7 +75,7 @@ class CYKParser(object):
                     v = self.nonterminal_inverse_map[lhs_]
                     print(prod, "|", j)
                     # print(j, s, '|', v, '|', prod)
-                    value[j, j, v] = prod.prob()
+                    value[j, j, v] = prod.logprob()
         # import ipdb; ipdb.set_trace()
         # STEP 2: ITERATE ON THE TRIANGLE AND LOOK AT ALL SUB-SENTENCES xi,...,xj
         # LOOK AT BINARY PRODUCTIONS AND ASSIGN SPLIT PROBABILITIES
@@ -88,7 +88,7 @@ class CYKParser(object):
                         a = self.nonterminal_inverse_map[prod.lhs().symbol()]
                         b = self.nonterminal_inverse_map[prod.rhs()[0].symbol()]
                         c = self.nonterminal_inverse_map[prod.rhs()[1].symbol()]
-                        prob_split = prod.prob() * value[i, pos, b] * value[pos+1, j, c]
+                        prob_split = prod.logprob() + value[i, pos, b] + value[pos+1, j, c]
                         if value[i, j, a] < prob_split:
                             print(prod, "|", i, pos, j, "|", a, b, c)
                             value[i, j, a] = prob_split
@@ -117,9 +117,8 @@ class CYKParser(object):
                     self.nonterminal_symbols[nt_idx],
                     lhs_, rhs_)
             return result
-        print("Decoding...")
+        print("\nDecoding...")
         decoded_tree_bracketed_ = _decoder_func(0, n-1, start_idx)
         print(decoded_tree_bracketed_)
-        import ipdb; ipdb.set_trace()
         return decoded_tree_bracketed_
     

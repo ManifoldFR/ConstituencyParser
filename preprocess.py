@@ -47,8 +47,9 @@ def _process_line(line):
     line = _clean_line(line)
     t: Tree = Tree.fromstring(line)
     t.chomsky_normal_form(horzMarkov=2)
-    t.collapse_unary(collapsePOS=True, collapseRoot=True)  # we use this for counting
+    t.collapse_unary(collapsePOS=False, collapseRoot=False)  # we use this for counting
     sentence = t.leaves()  # list of tokens!
+    # import ipdb; ipdb.set_trace()
     return t, sentence
 
 
