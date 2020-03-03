@@ -43,13 +43,12 @@ def _clean_line(line):
 
 
 def _process_line(line):
-    """Pre-process the line and extract the tree."""
+    """Pre-process the line and extract the tree and sentence (token list)."""
     line = _clean_line(line)
-    t: Tree = Tree.fromstring(line)
+    t: Tree = Tree.fromstring(line, remove_empty_top_bracketing=True)
     t.chomsky_normal_form(horzMarkov=2)
-    t.collapse_unary(collapsePOS=False, collapseRoot=False)  # we use this for counting
-    sentence = t.leaves()  # list of tokens!
-    # import ipdb; ipdb.set_trace()
+    # t.collapse_unary(collapsePOS=True, collapseRoot=True)
+    sentence = t.leaves()  # tokenized sentence, good for making language models with :)
     return t, sentence
 
 
@@ -61,32 +60,103 @@ def process_corpus(lines):
     The list of parsed trees (type `nltk.tree.Tree`), and sentences to use for training
     a language model.
     """
-    res = []
+    parsed_trees = []
     sentences = []
     for line in lines:
-        proc_line, sentence = _process_line(line)
-        res.append(proc_line)
+        t, sentence = _process_line(line)
+        parsed_trees.append(t)
         sentences.append(sentence)
-    return res, sentences
+    return parsed_trees, sentences
 
 
-def get_productions(data):
-    """Extract the productions (rewriting rules) from a list of parsed trees.
+def build_pcfg(data: List[Tree]):
+    """Get productions from the list of parsed trees, build a PCFG and probabilistic lexicon.
     
     Parameters
     ----------
     data
         List of NLTK trees (extracted from the annotated corpus).
     """
-    rules = set()
-    for it in data:
-        for prod in it.productions():
-            rules.add(prod)
-            # import ipdb; ipdb.set_trace()
-    return rules
+    rules: List[nltk.Production] = []
+    lexicon_rules: List[nltk.Production] = []
+    # Iterate over the trees, separate lexical rules from others
+    for t in data:
+        for prod in t.productions():
+            if prod.is_lexical():
+                lexicon_rules.append(prod)
+            else:
+                rules.append(prod)
 
-def build_pcfg(data):
+    S = Nonterminal('SENT')
+    grammar = nltk.induce_pcfg(S, rules)  # using NLTK's convenience function that counts the rules and LHSs
+    lexicon = ProbabilisticLexicon(lexicon_rules)  # our own data structure
+    return grammar, lexicon
+
+
+class ProbabilisticLexicon(object):
+    """Record of rules of the form `PoS -> token` with assigned probabilities."""
+    
+    def __init__(self, lexical_rules: List[nltk.Production]):
+        super().__init__()
+        self._raw_rules = lexical_rules.copy()
+        self._tokens = set()
+        self._pos = set()
+
+        self._compute_frequencies()
+
+    def _compute_frequencies(self):
+        """Code inspired by NLTK's `nltk.grammar.induce_pcfg` for counting production frequencies."""
+        from collections import defaultdict
+        token_count = defaultdict(int)
+        prod_count = defaultdict(int)
+        
+        for rule in self._raw_rules:
+            token = rule._rhs[0]
+            pos_ = rule._lhs
+            self._tokens.add(token)
+            self._pos.add(pos_)
+            token_count[token] += 1
+            prod_count[rule] += 1
+        
+        # use ProbabilisticProduction to represent the triple (PoS (lhs), token (rhs), probability)
+        _proba_prods = set()
+        for rule in self._raw_rules:
+            _proba_prods.add(
+            nltk.ProbabilisticProduction(
+                rule.lhs(), rule.rhs(), prob=prod_count[rule] / token_count[rule._rhs[0]])
+            )
+        self._proba_prods = list(_proba_prods)
+        
+        # compute map from tokens to distribution of PoS
+        self._token_pos_map = defaultdict(dict)
+        for prod in self._proba_prods:
+            token = prod._rhs[0]
+            lhs_ = prod._lhs
+            self._token_pos_map[token][lhs_] = prod.prob()
+    
+    def get_pos_distribution(self, token):
+        return self._token_pos_map[token]
+    
+    def rules(self) -> List[nltk.ProbabilisticProduction]:
+        return self._proba_prods
+    
+    def tokens(self) -> List[str]:
+        """Return the token vocabulary."""
+        return list(self._tokens)
+
+    def pos(self) -> List[str]:
+        """Return the list of parts-of-speech (PoS)"""
+        return list(self._pos)
+
+    def __repr__(self):
+        return "<Lexicon with {:d} tokens and {:d} PoS>".format(
+            len(self._tokens), len(self._pos))
+
+
+def build_pcfgV2(data):
     """Get a Probabilistic Context-Free Grammar (PCFGs) from the list of parsed trees.
+    
+    # TODO THIS IS A MANUAL VERSION WITHOUT NLTK, FINISH THIS MAYBE
     
     Parameters
     ----------
@@ -121,37 +191,7 @@ def build_pcfg(data):
     return rules
 
 
-def get_symbols(productions: List[nltk.ProbabilisticProduction]):
-    """Extract the symbols from a rule.
-    
-    Returns Python sets for easy updates.
-    """
-    
-    def _get_symbols(rule: nltk.ProbabilisticProduction):
-        non_terminal = [rule.lhs().symbol()]
-        if rule.is_lexical():
-            # rhs contains terminal token
-            rhs_is_word = True
-            terminal = set(map(str.lower, rule.rhs()))
-        else:
-            terminal = set()  # no terminal nodes
-            rhs_is_word = False
-            for item in rule.rhs():
-                non_terminal.append(item.symbol())
-        non_terminal = set(non_terminal)
-        return rhs_is_word, non_terminal, terminal
-
-    nonterm_symb = set()
-    term_symb = set()
-    for rule in productions:
-        is_word, nt, t = _get_symbols(rule)
-        nonterm_symb.update(nt)
-        term_symb.update(t)
-    return nonterm_symb, term_symb
-    
-
-
-def train_language_model(sentences, method="laplace"):
+def train_language_model(sentences, method="wittenbell"):
     """Extract unigrams and bigrams and train a language model using NLTK helpers.
     The returned language model has helper methods to compute unigram and bigram scores.
     
@@ -163,11 +203,6 @@ def train_language_model(sentences, method="laplace"):
     sentences = [[s.lower() for s in sent] for sent in sentences]
     train_grams, vocab = padded_everygram_pipeline(2, sentences)
     from nltk import lm
-    if method == "wittenbell":
-        model = lm.WittenBellInterpolated(2)
-    elif method == "laplace":
-        model = lm.Laplace(2)
-    else:
-        raise ValueError("Unknown language model type")
+    model = lm.Laplace(2)
     model.fit(train_grams, vocab)
     return model

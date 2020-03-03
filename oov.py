@@ -1,5 +1,5 @@
 import numpy as np
-from preprocess import load_embeddings, DIGITS
+from preprocess import load_embeddings, DIGITS, ProbabilisticLexicon
 from sklearn.neighbors import NearestNeighbors
 from typing import List
 from nltk.lm.api import LanguageModel
@@ -34,7 +34,8 @@ class OOVModule(object):
     (based on embeddings).
     """
 
-    def __init__(self, corpus_terminals, language_model, n_spell_neighbors=6, n_embed_neighbors=6):
+    def __init__(self, terminals, language_model, vocab,
+                 n_spell_neighbors=4, n_embed_neighbors=6, debug=False):
         super().__init__()
         # Get embeddings
         words, embeddings = load_embeddings()
@@ -44,8 +45,10 @@ class OOVModule(object):
         # Corpus terminals
         self.n_spell_neighbors = n_spell_neighbors
         self.n_embed_neighbors = n_embed_neighbors
-        self.corpus: List[str] = corpus_terminals
+        self.corpus: List[str] = vocab  # tokens
+        self.corpus_pos = terminals  # PoS
         self.language_model: LanguageModel = language_model
+        self.debug = debug
         
         # Pre-compute a Euclidean Nearest-Neighbor search tree in (normalized) embedding space.
         ## Euclidean distance on normalized vector == cosine distance
@@ -62,8 +65,7 @@ class OOVModule(object):
         ----------
         word : str
         """
-        # TODO this is a major bottleneck
-        # TODO be smarter, maybe generate the proposals at edit distance < 2 instead of looping over corpus
+        # TODO this is a major bottleneck: be smarter, maybe generate the proposals at edit distance < 2 instead of looping over corpus
         num_neighbors = self.n_spell_neighbors
         all_score = []
         all_neigh = []
@@ -88,7 +90,7 @@ class OOVModule(object):
             return self._embed_backoff(word)
 
     def _embed_backoff(self, word: str):
-        """Backoff strategy if the word is not found in the embedding corpus.
+        """Backoff strategy if the word is OOV wrt the embedding corpus.
         Keeping things simple: change around the case and normalize the digits.
         
         Inspired by the Polyglot example notebook on KNN: https://nbviewer.jupyter.org/gist/aboSamoor/6046170"""
@@ -126,7 +128,7 @@ class OOVModule(object):
         neighs = spelling_neighs_ + embed_neighs_
         if word not in neighs:
             neighs.append(word)
-        return neighs
+        return [s.lower() for s in neighs]
     
     def get_replacement_tokens(self, sentence: List[str]):
         """Obtain a sequence of tokens with OOV tokens properly replaced with their
@@ -139,22 +141,25 @@ class OOVModule(object):
         total_score = 0.
         
         for i, token in enumerate(sentence):
-            if i > 0:
+            if i == 0:
                 context = []
             else:
                 context = [res_seq[i-1]]
             
-            if token.lower() in self.corpus:
-                total_score += self.language_model.logscore(token, context=context)
+            if token in self.corpus:
+                total_score += self.language_model.logscore(token.lower(), context=context)
             else:
                 proposals = self._make_proposals(token)
-                proposal_scores = np.array([
-                    total_score + self.language_model.logscore(prop, context=context)
+                proposals = [p for p in proposals if p in self.corpus]
+                proposal_scores = total_score + np.array([
+                    self.language_model.logscore(prop, context=context)
                     for prop in proposals
                 ])
-                # print({prop: sc for prop, sc in zip(proposals, proposal_scores)})
+                if self.debug:
+                    print({prop: sc for prop, sc in zip(proposals, proposal_scores)})
                 best_idx = np.argmax(proposal_scores)
                 res_seq[i] = proposals[best_idx]
                 total_score = proposal_scores[best_idx]
+        # import ipdb; ipdb.set_trace()
         res_seq = list(map(str.lower, res_seq))
         return res_seq

@@ -1,21 +1,19 @@
 import numpy as np
 from preprocess import load_corpus
-from preprocess import process_corpus, get_productions
-from preprocess import get_symbols, train_language_model
+from preprocess import process_corpus, build_pcfg
+from preprocess import train_language_model
 import argparse
 import nltk
 from nltk import Nonterminal
-from oov import OOVModule
+import oov
 import cyk
 from typing import List
+import random
 
+random.seed(42)
 
+# Python argument parser
 parser = argparse.ArgumentParser()
-
-def parse_sentence(sentence: str, oov: OOVModule):
-    sentence = sentence.split()  # split on whitespace
-    sentence_oov = oov.get_replacement_token()
-
 
 data = load_corpus()
 data.pop()  # remove the last line
@@ -33,10 +31,11 @@ print("Data test {:d}".format(len(data_test)))
 processed_trees, sentences = process_corpus(data_train)
 language_model = train_language_model(sentences)
 
+grammar, lexicon = build_pcfg(processed_trees)
 
-treebank_rules = get_productions(processed_trees)
-S = Nonterminal('+SENT')
-grammar = nltk.induce_pcfg(S, treebank_rules)
+nonterminal_symb = list(grammar._categories)  # LHSs of the grammar rules are all nonterminal symbols
+terminal_symb = lexicon.pos()  # PoS ; the lexicon already has the list of PoS pre-computed
+vocab = lexicon.tokens()  # stripped vocabulary
 
 # filter productions between unary and binary
 unary_idx = []
@@ -49,9 +48,15 @@ for i, prod in enumerate(grammar.productions()):
     else:
         raise ValueError("The grammar is not CNF!")
 
-nonterminal_symb, terminal_symb = get_symbols(grammar.productions())
-oov_module = OOVModule(terminal_symb, language_model)
-cyk_module = cyk.CYKParser(grammar, oov_module, unary_idx, binary_idx, nonterminal_symb)
+oov_module = oov.OOVModule(terminal_symb, language_model, vocab)
+
+cyk_module = cyk.CYKParser(grammar, oov_module, lexicon, unary_idx, binary_idx,
+                           nonterminal_symb, terminal_symb)
 
 # cyk_module.cyk_parse("Gutenberg est mort ?".split())
-cyk_module.cyk_parse("Pourquoi .".split())
+cyk_module.cyk_parse("Pourquoi ce thème ?".split())
+
+_, sentence_dev = process_corpus(data_dev)
+_, sentence_test = process_corpus(data_test)
+
+
