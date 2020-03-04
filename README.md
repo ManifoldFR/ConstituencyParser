@@ -2,6 +2,8 @@
 
 This work is an assignment for the MVA course "Algorithms for Speech and NLP".
 
+![example](example-run.png)
+
 ## Dependencies
 
 This code requires the Natural Language ToolKit (NLTK), NumPy and Scikit-Learn be installed.
