@@ -44,14 +44,14 @@ def _clean_line(line):
 def _process_line(line):
     """Pre-process the line and extract the tree and sentence (token list)."""
     line = _clean_line(line)
-    t: Tree = Tree.fromstring(line, remove_empty_top_bracketing=True)
+    t: Tree = Tree.fromstring(line, remove_empty_top_bracketing=True)  # remove bracketing because nltk gets the wrong start symbol!
     t.chomsky_normal_form(horzMarkov=2)
-    # t.collapse_unary(collapsePOS=True, collapseRoot=True)
+    t.collapse_unary(collapsePOS=True, collapseRoot=True)
     sentence = t.leaves()  # tokenized sentence, good for making language models with :)
     return t, sentence
 
 
-def process_corpus(lines):
+def process_corpus(lines, tqdm_desc=None):
     """Process the treebank corpus.
     
     Returns
@@ -62,7 +62,7 @@ def process_corpus(lines):
     parsed_trees = []
     sentences = []
     import tqdm
-    for line in tqdm.tqdm(lines):
+    for line in tqdm.tqdm(lines, desc=tqdm_desc):
         t, sentence = _process_line(line)
         parsed_trees.append(t)
         sentences.append(sentence)
@@ -203,6 +203,9 @@ def train_language_model(sentences, method="wittenbell"):
     sentences = [[s.lower() for s in sent] for sent in sentences]
     train_grams, vocab = padded_everygram_pipeline(2, sentences)
     from nltk import lm
-    model = lm.Laplace(2)
+    if method == "wittenbell":
+        model = lm.WittenBellInterpolated(2)
+    else:
+        model = lm.Laplace(2)
     model.fit(train_grams, vocab)
     return model
