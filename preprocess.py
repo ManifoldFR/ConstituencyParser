@@ -61,7 +61,8 @@ def process_corpus(lines):
     """
     parsed_trees = []
     sentences = []
-    for line in lines:
+    import tqdm
+    for line in tqdm.tqdm(lines):
         t, sentence = _process_line(line)
         parsed_trees.append(t)
         sentences.append(sentence)
