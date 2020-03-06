@@ -5,6 +5,9 @@ import oov
 import math
 from preprocess import ProbabilisticLexicon
 
+ANSI_RED = "\033[91m"
+ANSI_ENDC = '\033[0m'
+
 
 class CYKParser(object):
     """Parser using a probabilistic variant of the Cocke-Younger-Kasami
@@ -126,8 +129,6 @@ class CYKParser(object):
                             backtrack[i, j, a] = [pos, b, c]
         # the best split for sentence[0..n] is given by
         # the backtracking array at indices [0, n, s0] where s0 is the index of the start symbol
-        start_idx = 0
-        
         def _decoder_func(i, j, symbol_idx, debug=False):
             result = ""
             if debug:
@@ -154,12 +155,15 @@ class CYKParser(object):
         try:
             # To decode, we first take the best possible start symbol
             best_start_ = np.argmax(value[0, n-1])
-            # import ipdb; ipdb.set_trace()
-            decoded_tree_bracketed_ = _decoder_func(0, n-1, best_start_)
-            decoded_tree_bracketed_ = "(SENT {:s})".format(decoded_tree_bracketed_)
-            print(decoded_tree_bracketed_)
+            decoded_tree_bracketed = _decoder_func(0, n-1, best_start_)
+            decoded_tree_bracketed = "(SENT {:s})".format(decoded_tree_bracketed)
+            tr_: nltk.Tree = nltk.Tree.fromstring(decoded_tree_bracketed)
+            tr_.un_chomsky_normal_form()
+            decoded_tree_bracketed = ' '.join(str(tr_).split())
+            print(decoded_tree_bracketed)
         except AssertionError:
-            decoded_tree_bracketed_ = None
-            print("Parsing failed.")
-        return decoded_tree_bracketed_
+            decoded_tree_bracketed = None
+            print(ANSI_RED + "Parsing failed." + ANSI_ENDC)
+        # Finish by 'unchomskyfying' the tree
+        return decoded_tree_bracketed
     

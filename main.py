@@ -106,26 +106,31 @@ if __name__ == "__main__":
     dataset_choice = args.dataset
     if dataset_choice is not None:
         import random
+        import multiprocessing
         ins_trees, ins_sents = DATASET_MAP[dataset_choice]
         
         results_ = []
         
-        SMOKE_TEST = True  # smoke detector 
+        SMOKE_TEST = False
         num_sents = len(ins_trees) if not SMOKE_TEST else 4
-        for _i in range(num_sents):
-            # idx = random.randint(0, len(ins_trees))
-            idx = _i
-            
-            print("\nParsing %s set sentence #%d / %d" % (dataset_choice, idx, num_sents))
-
+        
+        def parse_instance(idx: int):
             scorer = evalscorer.Scorer()
             sent_ = ins_sents[idx]
             target_ = ins_trees[idx][2:-1]
             
+            print("Parsing %s set sentence #%d/%d" % (dataset_choice, idx, num_sents))
             # Perform CYK prediction
             res_ = evaluate_predict(sent_, target_, cyk_module, scorer)
-            print(res_)
-            results_.append(res_)
+            print(res_, end='\n\n')
+            return res_
+        
+        # for idx in range(num_sents):
+        #     res_ = parse_instance(idx)
+        #     results_.append(res_)
+
+        with multiprocessing.Pool(8) as pl:
+            results_ = pl.map(parse_instance, range(num_sents))
         
         summary_ = evalscorer.summary.summary(results_)
         print(summary_)
