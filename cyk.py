@@ -43,6 +43,7 @@ class CYKParser(object):
         nonterminal_symb.pop(start_idx)
         nonterminal_symb.insert(0, start_symb)
         
+        self.nonterminal_symb = nonterminal_symb
         self.all_symbols: list = nonterminal_symb + terminal_symb
         self.terminal_symb = terminal_symb
         # reverse map for the symbols
@@ -52,6 +53,8 @@ class CYKParser(object):
         self.unary_rules = unary_idx
         self.binary_rules = binary_idx
 
+    def symbol_is_terminal(self, idx) -> bool:
+        return idx >= len(self.nonterminal_symb)
 
     def cyk_parse(self, sentence: List[str]):
         """
@@ -66,7 +69,10 @@ class CYKParser(object):
         print("Decoding \"{:s}\"".format(' '.join(sentence)), "({:d} words)".format(len(sentence)), end=' ')
         # auxiliary sentence
         sent_aux = self.oov_module.get_replacement_tokens(sentence)
-        print("Auxiliary sentence: \"{:s}\"".format(' '.join(sent_aux)))
+        print("aux. sentence: \"{:s}\"".format(' '.join(sent_aux)))
+        
+        # INVARIANT: the PoS sequence is the same length as the token sequence 
+        # we take as input
         
         n = len(sent_aux)
         r = len(self.all_symbols)
@@ -80,24 +86,21 @@ class CYKParser(object):
         # backtrack_[i, j, A] records the idx-tuple of symbols (p, B, C) such that rule A -> B C
         # at split point p in the parse tree gave the best score
         backtrack = np.zeros((n, n, r, 3), dtype=int)
-        
         # STEP 1: FOR EVERY TOKEN x FIND PoS A WITH RULE A -> x IN LEXICON
         for j, token in enumerate(sent_aux):
             # iterate over PoS -> x rules
-            for prod in self.lexicon.rules():
-                # import ipdb; ipdb.set_trace()
-                if prod.rhs()[0].lower() == token:
-                    # The rhs symbol is s! Record this
-                    lhs_ = prod.lhs()
-                    v = self.symb_inverse_map[lhs_]
-                    # print(j, s, '|', v, '|', prod)
-                    # The probability of the PoS is conditioned on the token
-                    value[j, j, v] = prod.logprob()
+            # we already have the inverse map in the lexicon object!
+            distro = self.lexicon.get_pos_distribution(token)
+            if self.debug:
+                print(j, "|", token, distro)
+            for pos_, proba_ in distro.items():
+                v = self.symb_inverse_map[pos_]  # index of the PoS in the symbol set
+                # The probability of the PoS is conditioned on the token
+                value[j, j, v] = math.log(proba_)
         
         # STEP 2: ITERATE ON THE TRIANGLE AND LOOK AT ALL SUB-SENTENCES xi,...,xj
         # LOOK AT BINARY PRODUCTIONS AND ASSIGN SPLIT PROBABILITIES
         # LOOK AT ALL SPLITTING POINTS IN xi,...,xj
-        #TODO SOME SENTENCES CAN'T BE PARSED WTH !! FIX
         for span in tqdm.trange(1, n):  # substring length - 1 i.e. number of tokens to look forward
             if self.debug:
                 print("SUBSTRING LENGTH %d" % (span+1))
@@ -118,7 +121,7 @@ class CYKParser(object):
                         prob_split = prod.logprob() + value[i, pos, b] + value[pos+1, j, c]
                         # Record the value of the best possible parse subtree
                         if value[i, j, a] < prob_split:
-                            # print(prod, "|", i, pos, j, "|", a, b, c)
+                            # print(prod, "| i=%d, pos=%d, j=%d" % (i, pos, j), "|", a, b, c, "| split proba", prob_split)
                             value[i, j, a] = prob_split
                             backtrack[i, j, a] = [pos, b, c]
         # the best split for sentence[0..n] is given by
@@ -127,7 +130,6 @@ class CYKParser(object):
         
         def _decoder_func(i, j, symbol_idx, debug=False):
             result = ""
-            
             if debug:
                 print("DEBUG: i=%d, j=%d, symbol=%s" % (i,j,self.all_symbols[symbol_idx]), end=' ')
             # Check this invariant for sanity
@@ -150,7 +152,11 @@ class CYKParser(object):
             return result
         
         try:
-            decoded_tree_bracketed_ = _decoder_func(0, n-1, start_idx)
+            # To decode, we first take the best possible start symbol
+            best_start_ = np.argmax(value[0, n-1])
+            # import ipdb; ipdb.set_trace()
+            decoded_tree_bracketed_ = _decoder_func(0, n-1, best_start_)
+            decoded_tree_bracketed_ = "(SENT {:s})".format(decoded_tree_bracketed_)
             print(decoded_tree_bracketed_)
         except AssertionError:
             decoded_tree_bracketed_ = None

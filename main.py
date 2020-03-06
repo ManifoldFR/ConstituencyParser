@@ -24,16 +24,13 @@ args = parser.parse_args()
 random.seed(args.seed)
 np.random.seed(args.seed)
 
-# 
+# STEP 1: LOAD DATA, SPLIT TRAIN/DEV/TEST
 data = load_corpus()
 data.pop()  # remove the last line
 
-# STEP 2: SPLIT TRAIN/DEV/TEST
-# indices = np.random.permutation(len(data))
-# print(indices)
-# data = data[indices]  # shuffle everyone, yay !
+np.random.shuffle(data)  # shuffle all the sentences once | it is important the seed be fixed here
 
-# Split test data off before shuffling to prevent contamination
+# Split test data off before shuffling again to prevent contamination
 data_train, data_test = np.split(
     data, [int(.9*len(data))])
 
@@ -43,26 +40,21 @@ np.random.shuffle(data_train)
 # Resplit between train and dev
 data_train, data_dev = np.split(data_train, [int(8/9*len(data_train))])
 
-print("Train data: {:d}".format(len(data_train)))
-print("Dev data: {:d}".format(len(data_dev)))
-print("Test data: {:d}".format(len(data_test)))
-
-
 # STEP 3: BUILD LANGUAGE MODEL AND CFG
-processed_trees, sentences = process_corpus(data_train, "Train")
-language_model = train_language_model(sentences)
+processed_trees, sentences_train = process_corpus(data_train, "Train")
+language_model = train_language_model(sentences_train)
 
-_, sentence_dev = process_corpus(data_dev, "Dev")
-_, sentence_test = process_corpus(data_test, "Test")
+_, sentences_dev = process_corpus(data_dev, "Dev")
+_, sentences_test = process_corpus(data_test, "Test")
 
 DATASET_MAP = {
-    "train": (data_train, sentences),
-    "dev": (data_dev, sentence_dev),
-    "test": (data_test, sentence_test)
+    "train": (data_train, sentences_train),
+    "dev": (data_dev, sentences_dev),
+    "test": (data_test, sentences_test)
 }
 
 grammar, lexicon = build_pcfg(processed_trees)
-# grammar.chomsky_normal_form()
+grammar.chomsky_normal_form()
 print("Built PCFG. {:s} | {:s}".format(repr(grammar), str(lexicon)))
 
 nonterminal_symb = list(grammar._categories)  # LHSs of the grammar rules are all nonterminal symbols
@@ -81,10 +73,8 @@ for i, prod in enumerate(grammar.productions()):
         raise ValueError("The grammar is not CNF!")
 
 oov_module = oov.OOVModule(terminal_symb, language_model, vocab)
-
 cyk_module = cyk.CYKParser(grammar, oov_module, lexicon, unary_idx, binary_idx,
                            nonterminal_symb, terminal_symb)
-
 
 
 if __name__ == "__main__":
@@ -99,7 +89,9 @@ if __name__ == "__main__":
             gold_tree = evalparser.create_from_bracket_string(target_parse)
             result = scorer.score_trees(gold_tree, pred_tree)
         else:
-            result = None
+            # in that case the sentence errored out
+            result = evalscorer.Result()
+            result.state = 2
         return result
 
     
@@ -114,20 +106,26 @@ if __name__ == "__main__":
     dataset_choice = args.dataset
     if dataset_choice is not None:
         import random
-        # parse like 10 sentences from train set to check
-        for _i in range(10):
-            ins_trees, ins_sents = DATASET_MAP[dataset_choice]
+        ins_trees, ins_sents = DATASET_MAP[dataset_choice]
+        
+        results_ = []
+        
+        SMOKE_TEST = True  # smoke detector 
+        num_sents = len(ins_trees) if not SMOKE_TEST else 4
+        for _i in range(num_sents):
+            # idx = random.randint(0, len(ins_trees))
+            idx = _i
             
-            idx = random.randint(0, len(ins_trees))
-            
-            print("\nParsing %s set sentence #%d" % (dataset_choice, idx))
+            print("\nParsing %s set sentence #%d / %d" % (dataset_choice, idx, num_sents))
 
             scorer = evalscorer.Scorer()
-            # Perform CYK prediction
             sent_ = ins_sents[idx]
             target_ = ins_trees[idx][2:-1]
+            
+            # Perform CYK prediction
             res_ = evaluate_predict(sent_, target_, cyk_module, scorer)
             print(res_)
+            results_.append(res_)
         
-        # summary_ = evalscorer.summary.summary([res_])
-        # print(summary_)
+        summary_ = evalscorer.summary.summary(results_)
+        print(summary_)

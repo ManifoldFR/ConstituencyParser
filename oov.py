@@ -35,7 +35,7 @@ class OOVModule(object):
     """
 
     def __init__(self, terminals, language_model, vocab,
-                 n_spell_neighbors=4, n_embed_neighbors=6, debug=False):
+                 n_spell_neighbors=6, n_embed_neighbors=6, debug=False):
         super().__init__()
         # Get embeddings
         words, embeddings = load_embeddings()
@@ -110,6 +110,7 @@ class OOVModule(object):
             return None
 
     def find_closest_embedding(self, word: str) -> list:
+        # search for a corresponding word in the embeddings corpus
         word_idx_embed = self.word2embed_idx(word)
         if word_idx_embed is None:
             return []
@@ -122,13 +123,18 @@ class OOVModule(object):
             return neigh
     
     def _make_proposals(self, word: str) -> list:
-        """Make proposals for an OOV word."""
+        """Make proposals for an OOV word.
+        
+        Assembles a list of proposals, first from edit distance and then
+        from embedding similarity."""
         score_, spelling_neighs_ = self.find_closest_spelling(word)
         embed_neighs_ = self.find_closest_embedding(word)
+        # Assemble
         neighs = spelling_neighs_ + embed_neighs_
         if word not in neighs:
             neighs.append(word)
-        return [s.lower() for s in neighs]
+        neighs = [s.lower() for s in neighs]
+        return neighs
     
     def get_replacement_tokens(self, sentence: List[str]):
         """Obtain a sequence of tokens with OOV tokens properly replaced with their
@@ -136,7 +142,6 @@ class OOVModule(object):
         
         We use a greedy strategy to obtain the maximum total score for the sentence.
         """
-        
         res_seq = sentence.copy()  # result sequence we modify in-place
         total_score = 0.
         
@@ -157,7 +162,13 @@ class OOVModule(object):
                 ])
                 if self.debug:
                     print({prop: sc for prop, sc in zip(proposals, proposal_scores)})
-                best_idx = np.argmax(proposal_scores)
+                try:
+                    best_score = np.max(proposal_scores)
+                    best_indices = np.argwhere([proposal_scores == best_score])[0]
+                    best_idx = best_indices[0]
+                except:
+                    import ipdb; ipdb.set_trace()
+                    best_idx = 0
                 res_seq[i] = proposals[best_idx]
                 total_score = proposal_scores[best_idx]
         # import ipdb; ipdb.set_trace()

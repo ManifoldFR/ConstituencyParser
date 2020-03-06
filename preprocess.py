@@ -46,7 +46,7 @@ def _process_line(line):
     line = _clean_line(line)
     t: Tree = Tree.fromstring(line, remove_empty_top_bracketing=True)  # remove bracketing because nltk gets the wrong start symbol!
     t.chomsky_normal_form(horzMarkov=2)
-    t.collapse_unary(collapsePOS=True, collapseRoot=True)
+    t.collapse_unary(collapsePOS=True, collapseRoot=False)
     sentence = t.leaves()  # tokenized sentence, good for making language models with :)
     return t, sentence
 
@@ -98,44 +98,52 @@ class ProbabilisticLexicon(object):
     
     def __init__(self, lexical_rules: List[nltk.Production]):
         super().__init__()
-        self._raw_rules = lexical_rules.copy()
+        self._raw_rules = lexical_rules.copy()  # all the rules, with duplicates
         self._tokens = set()
         self._pos = set()
 
         self._compute_frequencies()
 
     def _compute_frequencies(self):
-        """Code inspired by NLTK's `nltk.grammar.induce_pcfg` for counting production frequencies."""
+        """Code inspired by NLTK's `nltk.grammar.induce_pcfg` for counting production frequencies.
+        
+        Also normalizes the input tokens to lower case."""
         from collections import defaultdict
         token_count = defaultdict(int)
         prod_count = defaultdict(int)
         
-        for rule in self._raw_rules:
-            token = rule._rhs[0]
+        for idx, rule in enumerate(self._raw_rules):
+            token = rule._rhs[0].lower()
             pos_ = rule._lhs
+            rule._rhs = (token,)  # modify the token to lowercase
+            # it is necessary to use (pos, token) as keys
+            # because for hashcode reasons
+            prod_count[pos_, token] += 1
             self._tokens.add(token)
             self._pos.add(pos_)
             token_count[token] += 1
-            prod_count[rule] += 1
         
         # use ProbabilisticProduction to represent the triple (PoS (lhs), token (rhs), probability)
         _proba_prods = set()
         for rule in self._raw_rules:
+            rhs_ = rule._rhs
+            pos_ = rule._lhs
+            token = rhs_[0]
             _proba_prods.add(
-            nltk.ProbabilisticProduction(
-                rule.lhs(), rule.rhs(), prob=prod_count[rule] / token_count[rule._rhs[0]])
+                nltk.ProbabilisticProduction(
+                    rule._lhs, rhs_, prob=prod_count[pos_, token] / token_count[token])
             )
         self._proba_prods = list(_proba_prods)
         
         # compute map from tokens to distribution of PoS
         self._token_pos_map = defaultdict(dict)
         for prod in self._proba_prods:
-            token = prod._rhs[0]
+            token = prod._rhs[0].lower()
             lhs_ = prod._lhs
             self._token_pos_map[token][lhs_] = prod.prob()
     
-    def get_pos_distribution(self, token):
-        return self._token_pos_map[token]
+    def get_pos_distribution(self, token) -> dict:
+        return self._token_pos_map[token.lower()]
     
     def rules(self) -> List[nltk.ProbabilisticProduction]:
         return self._proba_prods
