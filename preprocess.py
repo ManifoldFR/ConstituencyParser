@@ -161,44 +161,6 @@ class ProbabilisticLexicon(object):
             len(self._tokens), len(self._pos))
 
 
-def build_pcfgV2(data):
-    """Get a Probabilistic Context-Free Grammar (PCFGs) from the list of parsed trees.
-    
-    # TODO THIS IS A MANUAL VERSION WITHOUT NLTK, FINISH THIS MAYBE
-    
-    Parameters
-    ----------
-    data
-        List of NLTK trees extracted from the corpus.
-    """
-    # dictionary of counts of (lhs, rhs) occurences
-    from collections import defaultdict
-    counts = defaultdict(dict)
-    total_counts = defaultdict(int)
-    
-    rules = set()
-    for it in data:
-        for prod in it.productions():
-            rules.add(prod)
-            lhs = prod.lhs().symbol()
-            if prod.is_lexical():
-                # for lexical nodes we have a token
-                rhs = prod.rhs()[0].symbol().lower()
-            else:
-                rhs = tuple(l.symbol() for l in prod.rhs())
-            if rhs not in counts[lhs]:
-                counts[lhs][rhs] = 0
-            else:
-                counts[lhs][rhs] += 1
-                total_counts[rhs] += 1
-    
-    
-    # STEP 2: renormalize probabilities
-    ## loop over rhs
-
-    return rules
-
-
 def train_language_model(sentences, method="wittenbell"):
     """Extract unigrams and bigrams and train a language model using NLTK helpers.
     The returned language model has helper methods to compute unigram and bigram scores.
