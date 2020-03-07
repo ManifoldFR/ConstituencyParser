@@ -3,10 +3,12 @@ from typing import List
 import nltk
 import oov
 import math
+import tqdm
 from preprocess import ProbabilisticLexicon
 
 ANSI_RED = "\033[91m"
 ANSI_ENDC = '\033[0m'
+ANSI_OKBLUE = '\033[94m'
 
 
 class CYKParser(object):
@@ -67,7 +69,6 @@ class CYKParser(object):
         sentence : List[str]
             Tokenized sentence `s_1,...,s_n` (each entry is a token string).
         """
-        import tqdm
         
         print("Decoding \"{:s}\"".format(' '.join(sentence)), "({:d} words)".format(len(sentence)), end=' ')
         # auxiliary sentence
@@ -160,10 +161,14 @@ class CYKParser(object):
             tr_: nltk.Tree = nltk.Tree.fromstring(decoded_tree_bracketed)
             tr_.un_chomsky_normal_form()
             decoded_tree_bracketed = ' '.join(str(tr_).split())
-            print(decoded_tree_bracketed)
+            print(ANSI_OKBLUE+decoded_tree_bracketed+ANSI_ENDC)
         except AssertionError:
-            decoded_tree_bracketed = None
+            tr_ = nltk.Tree("Failure", sentence)
+            tr_.un_chomsky_normal_form()
+            decoded_tree_bracketed = ' '.join(str(tr_).split())
             print(ANSI_RED + "Parsing failed." + ANSI_ENDC)
+            print(ANSI_RED + decoded_tree_bracketed + ANSI_ENDC)
+        # import ipdb; ipdb.set_trace()
         # Finish by 'unchomskyfying' the tree
         return decoded_tree_bracketed
     

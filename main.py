@@ -1,3 +1,4 @@
+import os
 import numpy as np
 from preprocess import load_corpus
 from preprocess import process_corpus, build_pcfg
@@ -19,6 +20,8 @@ parser.add_argument("--seed", help="Set a random seed (default: %(default)d)", d
 group1 = parser.add_argument_group("evaluation")
 group1.add_argument("--dataset", choices=["train", "dev", "test"],
                     help="Specify a dataset to evaluate (default: %(default)s)")
+group1.add_argument("--num-threads", default=os.cpu_count(), type=int,
+                    help="Number of threads for multiprocessing (default %(default)d)")
 args = parser.parse_args()
 
 random.seed(args.seed)
@@ -28,9 +31,7 @@ np.random.seed(args.seed)
 data = load_corpus()
 data.pop()  # remove the last line
 
-np.random.shuffle(data)  # shuffle all the sentences once | it is important the seed be fixed here
-
-# Split test data off before shuffling again to prevent contamination
+# Split last 10% off as test
 data_train, data_test = np.split(
     data, [int(.9*len(data))])
 
@@ -84,15 +85,14 @@ if __name__ == "__main__":
     
     def evaluate_predict(sentence, target_parse, cyk_module: cyk.CYKParser, scorer: evalscorer.Scorer) -> evalscorer.Result:
         predicted_string = cyk_module.cyk_parse(sentence)
-        if predicted_string is not None:
-            pred_tree = evalparser.create_from_bracket_string(predicted_string)
-            gold_tree = evalparser.create_from_bracket_string(target_parse)
-            result = scorer.score_trees(gold_tree, pred_tree)
-        else:
-            # in that case the sentence errored out
+        pred_tree = evalparser.create_from_bracket_string(predicted_string)
+        gold_tree = evalparser.create_from_bracket_string(target_parse)
+        if "Failure" in predicted_string:
             result = evalscorer.Result()
             result.state = 2
-        return result
+        else:
+            result = scorer.score_trees(gold_tree, pred_tree)
+        return result, predicted_string
 
     
     
@@ -112,25 +112,34 @@ if __name__ == "__main__":
         results_ = []
         
         SMOKE_TEST = False
-        num_sents = len(ins_trees) if not SMOKE_TEST else 4
+        num_sents = len(ins_trees) if not SMOKE_TEST else 3
         
         def parse_instance(idx: int):
             scorer = evalscorer.Scorer()
             sent_ = ins_sents[idx]
             target_ = ins_trees[idx][2:-1]
             
-            print("Parsing %s set sentence #%d/%d" % (dataset_choice, idx, num_sents))
+            print("Parsing %s set sentence #%d/%d" % (dataset_choice, idx+1, num_sents))
             # Perform CYK prediction
-            res_ = evaluate_predict(sent_, target_, cyk_module, scorer)
+            res_, pred_string = evaluate_predict(sent_, target_, cyk_module, scorer)
             print(res_, end='\n\n')
-            return res_
+            return res_, pred_string
         
-        # for idx in range(num_sents):
+        my_range = range(num_sents)
+        
+        num_threads = args.num_threads
+        print("Evaluating with {:d} threads.".format(num_threads))
+
+        # for idx in my_range:
         #     res_ = parse_instance(idx)
         #     results_.append(res_)
-
-        with multiprocessing.Pool(8) as pl:
-            results_ = pl.map(parse_instance, range(num_sents))
+        with multiprocessing.Pool(num_threads) as pl:
+            results_ = pl.map(parse_instance, my_range)
+        
+        results_, parser_output_ = list(zip(*results_))
+        
+        with open("evaluation_data.parser_output", "w") as f:
+            f.writelines(line + '\n' for line in parser_output_)
         
         summary_ = evalscorer.summary.summary(results_)
         print(summary_)

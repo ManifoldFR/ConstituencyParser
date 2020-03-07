@@ -43,7 +43,7 @@
 
 \paragraph{Building the PCFG and lexicon}
 
-We shuffle the treebank data before splitting between training, development and testing data. This is needed because lines in the treebank seem to be grouped together thematically\footnote{For instance l. 800--1000 discuss health, and l. 2700--2800 seem to discuss French politics.}. For reproducibility, we fixed the value of the random seed.
+We split the treebank data in training and testing dataset, before shuffling the training data and re-splitting between training and validation. The shuffling is needed because lines in the treebank seem to be grouped together thematically\footnote{For instance l. 800--1000 discuss health, and l. 2700--2800 seem to discuss French politics.}. For reproducibility, we fixed the value of the random seed.
 
 We use the Python Natural Language ToolKit (NLTK) \cite{nltkCitation} package to parse the treebank data as constituency trees in a way we can extract rules.
 We then strip the lexical rules, leaving the part-of-speech (PoS) as terminals, and build the PCFG from these productions using the data structure provided in NLTK and a helper which computes the empirical probabilities of individual productions.
@@ -68,7 +68,7 @@ We implement a probabilistic version of the CYK algorithm, as explained on its W
 \section{Results}
 
 
-We evaluated our parser on the test dataset. We get the following results: out of 310 sentences, 48 failed to parse, and an average PoS tag accuracy of $88.9\%$.
+We evaluated our parser on the test dataset. We get the following results: out of 310 sentences, 82 failed to parse, and an average PoS tag accuracy of $86.0\%$.
 
 We noticed a few problems. Handling OOV proper nouns is a difficult problem, especially when they are the first token in a sentence and thus have no context for the OOV module to use: it happens that common nouns or even verbs are used as replacements when they are picked up by edit distance, see \Cref{fig:npParseFailure_didiersoulage}.
 

@@ -19,12 +19,19 @@ A short description of the arguments can be obtained by running the `--help` opt
 python main.py --h
 ```
 
+Parsing failures will return a result of the form
+```
+(Failure {Sentence})
+```
+
 ### Evaluation on a dataset
 
 The `--dataset` argument specifies on which dataset (`train`, `dev` or `test`) to evaluate the parser.
 ```bash
 python main.py --dataset test  # evaluate on the test set
 ```
+Other options:
+* `--num-threads` number of multiprocessing threads for evaluating the dataset in parallel
 
 ### Custom input sentences
 
