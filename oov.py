@@ -119,6 +119,7 @@ class OOVModule(object):
             dists_, e_neigh_idx = self.embed_knn.kneighbors([w_embed_])
             e_neigh_idx = e_neigh_idx.ravel()
             e_neigh = np.asarray(self.words)[e_neigh_idx]
+            e_neigh = map(str.lower, e_neigh)
             neigh = [el for el in e_neigh if el in self.corpus]
             return neigh
     

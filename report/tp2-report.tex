@@ -68,10 +68,9 @@ We implement a probabilistic version of the CYK algorithm, as explained on its W
 \section{Results}
 
 
-We evaluated our parser on the test dataset. We get the following results: out of 310 sentences, 82 failed to parse, and an average PoS tag accuracy of $86.0\%$.
+We evaluated our parser on the test dataset. We get the following results: out of 310 sentences, 80 failed to parse, and an average PoS tag accuracy of $86.6\%$.
 
-We noticed a few problems. Handling OOV proper nouns is a difficult problem, especially when they are the first token in a sentence and thus have no context for the OOV module to use: it happens that common nouns or even verbs are used as replacements when they are picked up by edit distance, see \Cref{fig:npParseFailure_didiersoulage}.
-
+We noticed a few problems. Firstly: handling OOV proper nouns is a difficult problem, especially when they are the first token in a sentence and thus have no context for the OOV module to use: it happens that common nouns or even verbs are used as replacements when they are picked up by edit distance, see \Cref{fig:npParseFailure_didiersoulage}.
 \begin{figure}[ht!]
 	\centering
 	\includegraphics[width=\linewidth]{gandhi-garde.png}
