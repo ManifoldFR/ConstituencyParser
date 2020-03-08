@@ -1,6 +1,6 @@
 \documentclass[11pt]{article}
 
-\usepackage[a4paper,hmargin=2.8cm,vmargin=2.6cm]{geometry}
+\usepackage[a4paper,hmargin=3cm,vmargin=2.6cm]{geometry}
 \usepackage{titlesec}
 \usepackage{mathtools}
 \usepackage{listings}
@@ -43,12 +43,12 @@
 
 \paragraph{Building the PCFG and lexicon}
 
-We split the treebank data in training and testing dataset, before shuffling the training data and re-splitting between training and validation. The shuffling is needed because lines in the treebank seem to be grouped together thematically\footnote{For instance l. 800--1000 discuss health, and l. 2700--2800 seem to discuss French politics.}. For reproducibility, we fixed the value of the random seed.
+We split the treebank data in training and testing dataset (a 90\%/10\% split), before shuffling the training data and re-splitting between training and validation. We shuffle because lines in the treebank seem to be grouped together thematically\footnote{For instance l. 800--1000 discuss health, and l. 2700 and above seem to discuss French politics.}. For reproducibility of the split, we fixed the value of the random seed.
 
-We use the Python Natural Language ToolKit (NLTK) \cite{nltkCitation} package to parse the treebank data as constituency trees in a way we can extract rules.
+We use the Python Natural Language ToolKit (NLTK) \cite{nltkCitation} package to parse the treebank data as constituency trees in a way we can extract rules. To avoid sparsity issues, we strip functional tags, e.g. the \lstinline|-SUJ| from tags of the form \lstinline|NP-SUJ|, using a regular expression.
 We then strip the lexical rules, leaving the part-of-speech (PoS) as terminals, and build the PCFG from these productions using the data structure provided in NLTK and a helper which computes the empirical probabilities of individual productions.
 
-The lexical rules are transformed into a lexicon using our \lstinline|ProbabilisticLexicon| Python class, which holds the triples $(w,\mathrm{PoS}, p(\mathrm{PoS}|w))$ for every PoS and token $w$ (with nonzero probability) stored as a map $w \mapsto \{(\mathrm{PoS},p(\mathrm{PoS}|w))\}$.
+The lexical rules are transformed into a lexicon using a custom \lstinline|ProbabilisticLexicon| Python class, which holds the triples $(w,\mathrm{PoS}, p(\mathrm{PoS}|w))$ for every PoS and token $w$ (with nonzero probability) stored as a map $w \mapsto \{(\mathrm{PoS},p(\mathrm{PoS}|w))\}$.
 
 
 
@@ -63,20 +63,29 @@ We run every input sentence through the module, which keeps in-corpus tokens and
 
 \paragraph{CYK algorithm}
 
-We implement a probabilistic version of the CYK algorithm, as explained on its Wikipedia page \cite{wiki:CYK}. Since the PCFG terminals are parts-of-speech, we integrate the words $w$ for the choice of PoS using the lexicon probabilities $p(\mathrm{PoS}|w)$.
+We implement a probabilistic version of the CYK algorithm, as explained on its Wikipedia page \cite{wiki:CYK}. Since the PCFG terminals are parts-of-speech, we integrate the tokens $w$ for the choice of PoS using the lexicon probabilities $p(\mathrm{PoS}|w)$.
+
 
 \section{Results}
 
 
-We evaluated our parser on the test dataset. We get the following results: out of 310 sentences, 80 failed to parse, and an average PoS tag accuracy of $86.6\%$.
+We evaluated our parser on the test dataset. We get the following results: out of 310 sentences, 80 failed to parse, and we obtained an average PoS tag accuracy of $86.6\%$ on the remaining sentences.
 
-We noticed a few problems. Firstly: handling OOV proper nouns is a difficult problem, especially when they are the first token in a sentence and thus have no context for the OOV module to use: it happens that common nouns or even verbs are used as replacements when they are picked up by edit distance, see \Cref{fig:npParseFailure_didiersoulage}.
+Among the errors we noticed, handling OOV proper nouns seems like a source of mistakes, especially when they are the first token in a sentence and thus have no context for the OOV module to use: it happens that common nouns or even verbs are used as replacements when they are picked up by edit distance, see \Cref{fig:npParseFailure_GeorgeRR}.
 \begin{figure}[ht!]
 	\centering
-	\includegraphics[width=\linewidth]{gandhi-garde.png}
-	\caption{Failure of parsing a proper noun which is out-of-vocabulary.}
-	\label{fig:npParseFailure_didiersoulage}
+	\includegraphics[width=\linewidth]{georgemartin-fail.png}
+	\caption{Failure of parsing a proper noun which is out-of-vocabulary. Here, the names ``George", and ``Martin" are mistakenly identified as \lstinline|NC| and \lstinline|ADJ| because the OOV module replaced them by ``gorge" and ``marin". Replacing the English spelling of the proper noun ``George" by its French spelling ``Georges" produces a correct parse for that token (see \cref{fig:ParseWin_GeorgeRR}).}
+	\label{fig:npParseFailure_GeorgeRR}
 \end{figure}
+This specific issue could be tackled with a better replacement strategy in the OOV module instead of the greedy approach we used. There is also the option of using a larger embedding corpus.
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=\linewidth]{../example-run.png}
+	\caption{This time, ``Georges" is parsed correctly as \lstinline|NPP|.}\label{fig:ParseWin_GeorgeRR}
+\end{figure}
+
+
 
 
 \printbibliography{}

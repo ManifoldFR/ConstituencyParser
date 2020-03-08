@@ -163,13 +163,9 @@ class OOVModule(object):
                 ])
                 if self.debug:
                     print({prop: sc for prop, sc in zip(proposals, proposal_scores)})
-                try:
-                    best_score = np.max(proposal_scores)
-                    best_indices = np.argwhere([proposal_scores == best_score])[0]
-                    best_idx = best_indices[0]
-                except:
-                    import ipdb; ipdb.set_trace()
-                    best_idx = 0
+                best_score = np.max(proposal_scores)
+                best_indices = np.argwhere([proposal_scores == best_score])[0]
+                best_idx = best_indices[0]
                 res_seq[i] = proposals[best_idx]
                 total_score = proposal_scores[best_idx]
         # import ipdb; ipdb.set_trace()

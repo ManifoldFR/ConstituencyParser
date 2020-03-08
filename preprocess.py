@@ -112,6 +112,9 @@ class ProbabilisticLexicon(object):
         token_count = defaultdict(int)
         prod_count = defaultdict(int)
         
+        _tokens = []
+        _pos = []
+        
         for idx, rule in enumerate(self._raw_rules):
             token = rule._rhs[0].lower()
             pos_ = rule._lhs
@@ -119,9 +122,16 @@ class ProbabilisticLexicon(object):
             # it is necessary to use (pos, token) as keys
             # because for hashcode reasons
             prod_count[pos_, token] += 1
-            self._tokens.add(token)
-            self._pos.add(pos_)
+            _tokens.append(token)
+            _pos.append(pos_)
             token_count[token] += 1
+        
+        ## IMPORTANT: do not use Python set
+        ## because the hash function is randomly and uncontrollably 
+        ## seeded, which changes the token and PoS ordering
+        
+        self._tokens = list(np.unique(_tokens))
+        self._pos = list(np.unique(_pos))
         
         # use ProbabilisticProduction to represent the triple (PoS (lhs), token (rhs), probability)
         _proba_prods = set()

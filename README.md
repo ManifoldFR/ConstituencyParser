@@ -2,7 +2,7 @@
 
 This work is an assignment for the MVA course "Algorithms for Speech and NLP".
 
-![example](example-run.png)
+![example](report/example-run.png)
 
 ## Dependencies
 

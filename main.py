@@ -1,16 +1,7 @@
 import os
 import numpy as np
-from preprocess import load_corpus
-from preprocess import process_corpus, build_pcfg
-from preprocess import train_language_model
-import argparse
-import nltk
-from nltk import Nonterminal
-import oov
-import cyk
-from typing import List
 import random
-from sklearn.model_selection import train_test_split
+import argparse
 
 
 # Python argument parser  |  parameters from "run.sh" are passed onto this
@@ -26,6 +17,18 @@ args = parser.parse_args()
 
 random.seed(args.seed)
 np.random.seed(args.seed)
+
+
+from preprocess import load_corpus
+from preprocess import process_corpus, build_pcfg
+from preprocess import train_language_model
+import nltk
+from nltk import Nonterminal
+import oov
+import cyk
+from typing import List
+
+
 
 # STEP 1: LOAD DATA, SPLIT TRAIN/DEV/TEST
 data = load_corpus()
