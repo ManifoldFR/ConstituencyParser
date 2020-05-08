@@ -78,11 +78,11 @@ Among the errors we noticed, handling OOV proper nouns seems like a source of mi
 	\caption{Failure of parsing a proper noun which is out-of-vocabulary. Here, the names ``George", and ``Martin" are mistakenly identified as \lstinline|NC| and \lstinline|ADJ| because the OOV module replaced them by ``gorge" and ``marin". Replacing the English spelling of the proper noun ``George" by its French spelling ``Georges" produces a correct parse for that token (see \cref{fig:ParseWin_GeorgeRR}).}
 	\label{fig:npParseFailure_GeorgeRR}
 \end{figure}
-This specific issue could be tackled with a better replacement strategy in the OOV module instead of the greedy approach we used. There is also the option of using a larger embedding corpus.
+This specific issue could be tackled with a better replacement strategy in the OOV module instead of the greedy approach we used. There is also the option of directly handling foreign spelling of proper nouns using some kind of translation module.
 \begin{figure}[h]
 	\centering
 	\includegraphics[width=\linewidth]{../example-run.png}
-	\caption{This time, ``Georges" is parsed correctly as \lstinline|NPP|.}\label{fig:ParseWin_GeorgeRR}
+	\caption{This time, ``Georges" (French spelling) is parsed correctly as \lstinline|NPP|.}\label{fig:ParseWin_GeorgeRR}
 \end{figure}
 
 

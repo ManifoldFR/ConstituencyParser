@@ -2,12 +2,14 @@
 
 This work is an assignment for the MVA course "Algorithms for Speech and NLP".
 
-![example](report/example-run.png)
+![example](example-run.png)
 
 ## Dependencies
 
 This code requires the Natural Language ToolKit (NLTK), NumPy and Scikit-Learn be installed.
 It was tested for Python version 3.7.6 (I use type hints in my code).
+
+The data (polyglot embeddings and Sequoia corpus) must be put at the root of this folder.
 
 ## Use
 
